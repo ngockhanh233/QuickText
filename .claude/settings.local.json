@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npm search *)",
+      "Bash(npm view *)",
+      "Bash(npm install *)",
+      "Bash(npm uninstall *)",
+      "Bash(npm ls *)",
+      "Bash(ls android/gradlew*)",
+      "Bash(adb devices *)",
+      "Bash(./gradlew clean *)",
+      "Bash(tasklist)",
+      "Bash(env)",
+      "Bash(cat android/app/.cxx/Debug/*/build_output.txt)",
+      "Bash(find android *)",
+      "Bash(./gradlew --stop)",
+      "Bash(npx patch-package *)",
+      "Bash(npx react-native *)",
+      "Bash(./gradlew app:installDebug)",
+      "Bash(adb shell *)"
+    ]
+  }
+}
