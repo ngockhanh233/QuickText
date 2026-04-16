@@ -17,6 +17,8 @@ import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
+import android.widget.PopupWindow
+import android.widget.Switch
 import android.widget.TextView
 import com.quicktext.R
 
@@ -44,10 +46,13 @@ class QuickTextKeyboardService :
     private lateinit var emojiGrid: GridLayout
     private lateinit var inputContainer: FrameLayout
     private lateinit var globeButton: TextView
+    private lateinit var settingsButton: TextView
 
     private lateinit var phrasesDb: PhrasesDatabase
     private lateinit var wordDict: WordDictionary
+    private lateinit var settings: KeyboardSettings
     private val telex = TelexProcessor()
+    private var settingsPopup: PopupWindow? = null
 
     private var capsOn = false
     private var showingSymbols = false
@@ -79,9 +84,13 @@ class QuickTextKeyboardService :
         qwertyKeyboard = Keyboard(this, R.xml.qwerty)
         symbolsKeyboard = Keyboard(this, R.xml.symbols)
 
+        settings = KeyboardSettings(this)
+
         keyboardView.keyboard = qwertyKeyboard
         keyboardView.setOnKeyboardActionListener(this)
-        keyboardView.isPreviewEnabled = true
+        keyboardView.isPreviewEnabled = settings.keyPreviewEnabled
+        keyboardView.userPreviewEnabled = settings.keyPreviewEnabled
+        keyboardView.glideEnabled = settings.glideEnabled
         keyboardView.onSwipeComplete = { letters ->
             handleSwipeComplete(letters)
         }
@@ -90,9 +99,68 @@ class QuickTextKeyboardService :
         globeButton.setOnClickListener { toggleTelexMode() }
         updateGlobeButtonLabel()
 
+        settingsButton = root.findViewById(R.id.settings_button)
+        settingsButton.setOnClickListener { showSettingsPopup() }
+
         phrasesDb = PhrasesDatabase(this)
         wordDict = WordDictionary(this)
+        updateSpaceKeyLabel()
         return root
+    }
+
+    @SuppressLint("InflateParams")
+    private fun showSettingsPopup() {
+        // If popup is already open, dismiss instead.
+        settingsPopup?.let {
+            if (it.isShowing) {
+                it.dismiss()
+                settingsPopup = null
+                return
+            }
+        }
+
+        val popupView = LayoutInflater.from(this).inflate(R.layout.popup_settings, null)
+
+        val glideSwitch = popupView.findViewById<Switch>(R.id.switch_glide)
+        glideSwitch.isChecked = settings.glideEnabled
+        glideSwitch.setOnCheckedChangeListener { _, checked ->
+            settings.glideEnabled = checked
+            keyboardView.glideEnabled = checked
+        }
+
+        val previewSwitch = popupView.findViewById<Switch>(R.id.switch_preview)
+        previewSwitch.isChecked = settings.keyPreviewEnabled
+        previewSwitch.setOnCheckedChangeListener { _, checked ->
+            settings.keyPreviewEnabled = checked
+            keyboardView.userPreviewEnabled = checked
+        }
+
+        val autoCapsSwitch = popupView.findViewById<Switch>(R.id.switch_autocaps)
+        autoCapsSwitch.isChecked = settings.autoCapsEnabled
+        autoCapsSwitch.setOnCheckedChangeListener { _, checked ->
+            settings.autoCapsEnabled = checked
+            if (checked) updateAutoCaps()
+        }
+
+        popupView.findViewById<View>(R.id.btn_switch_keyboard).setOnClickListener {
+            settingsPopup?.dismiss()
+            settingsPopup = null
+            switchToNextInputMethod()
+        }
+
+        val popup = PopupWindow(
+            popupView,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true,
+        ).apply {
+            elevation = 12f
+            isOutsideTouchable = true
+            isFocusable = true
+        }
+        // Anchor above the settings button so it appears between suggestion bar and keyboard.
+        popup.showAsDropDown(settingsButton, -200, -keyboardView.height)
+        settingsPopup = popup
     }
 
     private fun toggleTelexMode() {
@@ -103,10 +171,26 @@ class QuickTextKeyboardService :
             currentInputConnection?.finishComposingText()
         }
         updateGlobeButtonLabel()
+        updateSpaceKeyLabel()
     }
 
     private fun updateGlobeButtonLabel() {
         globeButton.text = if (telexEnabled) "🌐 VI" else "🌐 EN"
+    }
+
+    /**
+     * Update the space key's label to reflect the current input language.
+     * Applied to both the QWERTY and symbols keyboards so it stays consistent
+     * after switching layouts.
+     */
+    private fun updateSpaceKeyLabel() {
+        val label = if (telexEnabled) "Vi" else "En"
+        listOf(qwertyKeyboard, symbolsKeyboard).forEach { kb ->
+            kb.keys?.forEach { key ->
+                if (key.codes?.firstOrNull() == 32) key.label = label
+            }
+        }
+        if (::keyboardView.isInitialized) keyboardView.invalidateAllKeys()
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
@@ -147,6 +231,8 @@ class QuickTextKeyboardService :
         super.onFinishInput()
         currentInputConnection?.finishComposingText()
         telex.reset()
+        settingsPopup?.dismiss()
+        settingsPopup = null
     }
 
     override fun onKey(primaryCode: Int, keyCodes: IntArray?) {
@@ -255,6 +341,8 @@ class QuickTextKeyboardService :
      * fields that did not opt in.
      */
     private fun updateAutoCaps() {
+        // Respect the user setting; if disabled, never auto-enable shift.
+        if (!::settings.isInitialized || !settings.autoCapsEnabled) return
         val ic = currentInputConnection ?: return
         val editorInfo = currentInputEditorInfo ?: return
         val typeWithSentenceCaps =

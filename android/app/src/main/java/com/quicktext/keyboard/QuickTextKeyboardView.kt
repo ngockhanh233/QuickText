@@ -33,6 +33,17 @@ class QuickTextKeyboardView @JvmOverloads constructor(
     /** Background colour painted over placeholder keys to hide them. */
     var placeholderOverColor: Int = Color.parseColor("#E4E7EB")
 
+    /** Whether glide/swipe-to-type is enabled. */
+    var glideEnabled: Boolean = true
+
+    /** What the user wants for key preview, separate from the temporary toggle during glide. */
+    var userPreviewEnabled: Boolean = true
+        set(value) {
+            field = value
+            // Reflect immediately if not currently swiping.
+            if (!swiping) isPreviewEnabled = value
+        }
+
     private val overlayPaint = Paint().apply {
         isAntiAlias = false
         style = Paint.Style.FILL
@@ -82,7 +93,7 @@ class QuickTextKeyboardView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_MOVE -> {
-                if (!swiping) {
+                if (!swiping && glideEnabled) {
                     val dx = me.x - swipeStartX
                     val dy = me.y - swipeStartY
                     if (dx * dx + dy * dy > swipeThresholdPx * swipeThresholdPx) {
@@ -139,7 +150,8 @@ class QuickTextKeyboardView @JvmOverloads constructor(
         swiping = false
         swipePath.reset()
         swipeLetters.setLength(0)
-        isPreviewEnabled = true
+        // Restore preview to whatever the user actually wants.
+        isPreviewEnabled = userPreviewEnabled
         invalidate()
     }
 
