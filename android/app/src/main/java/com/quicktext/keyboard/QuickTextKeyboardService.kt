@@ -88,7 +88,6 @@ class QuickTextKeyboardService :
 
         keyboardView.keyboard = qwertyKeyboard
         keyboardView.setOnKeyboardActionListener(this)
-        keyboardView.isPreviewEnabled = settings.keyPreviewEnabled
         keyboardView.userPreviewEnabled = settings.keyPreviewEnabled
         keyboardView.glideEnabled = settings.glideEnabled
         keyboardView.onSwipeComplete = { letters ->
@@ -110,7 +109,7 @@ class QuickTextKeyboardService :
 
     @SuppressLint("InflateParams")
     private fun showSettingsPopup() {
-        // If popup is already open, dismiss instead.
+        // If popup is already open, dismiss instead (toggle behavior).
         settingsPopup?.let {
             if (it.isShowing) {
                 it.dismiss()
@@ -148,18 +147,30 @@ class QuickTextKeyboardService :
             switchToNextInputMethod()
         }
 
+        val density = resources.displayMetrics.density
+        val popupWidthPx = (300 * density).toInt()
+
         val popup = PopupWindow(
             popupView,
+            popupWidthPx,
             ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            true,
+            // Not focusable - this is critical inside an IME. A focusable popup
+            // would steal input focus and Android would call onFinishInput() on
+            // our service, which would dismiss the popup again immediately.
+            false,
         ).apply {
             elevation = 12f
             isOutsideTouchable = true
-            isFocusable = true
+            // Required for outside-touch dismissal to actually work.
+            setBackgroundDrawable(
+                android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT),
+            )
         }
-        // Anchor above the settings button so it appears between suggestion bar and keyboard.
-        popup.showAsDropDown(settingsButton, -200, -keyboardView.height)
+
+        // Right-align the popup with the settings button so it stays on screen
+        // (default left-align would push the popup off the right edge).
+        val xOffset = -popupWidthPx + settingsButton.width
+        popup.showAsDropDown(settingsButton, xOffset, 0)
         settingsPopup = popup
     }
 
@@ -231,6 +242,15 @@ class QuickTextKeyboardService :
         super.onFinishInput()
         currentInputConnection?.finishComposingText()
         telex.reset()
+        // NOTE: do NOT dismiss the settings popup here. onFinishInput() can fire
+        // for transient focus changes; dismissing would close the popup right
+        // after the user opened it.
+    }
+
+    override fun onWindowHidden() {
+        super.onWindowHidden()
+        // The whole keyboard window is gone (user switched apps, hid the IME, etc.) -
+        // this is the right time to release the popup.
         settingsPopup?.dismiss()
         settingsPopup = null
     }
