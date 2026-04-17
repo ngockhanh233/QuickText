@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">QuickText</string>
+    <string name="accessibility_description">QuickText đọc nội dung bạn đang gõ để hiện gợi ý đoạn text phía trên bàn phím. Dữ liệu chỉ xử lý cục bộ trên thiết bị.</string>
 </resources>

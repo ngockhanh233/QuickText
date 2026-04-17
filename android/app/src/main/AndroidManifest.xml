@@ -33,16 +33,16 @@
         android:foregroundServiceType="specialUse" />
 
       <service
-        android:name=".keyboard.QuickTextKeyboardService"
-        android:label="QuickText Keyboard"
-        android:permission="android.permission.BIND_INPUT_METHOD"
+        android:name=".accessibility.QuickTextAccessibilityService"
+        android:label="QuickText Gợi ý"
+        android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
         android:exported="true">
         <intent-filter>
-          <action android:name="android.view.InputMethod" />
+          <action android:name="android.accessibilityservice.AccessibilityService" />
         </intent-filter>
         <meta-data
-          android:name="android.view.im"
-          android:resource="@xml/method" />
+          android:name="android.accessibilityservice"
+          android:resource="@xml/accessibility_config" />
       </service>
     </application>
 </manifest>

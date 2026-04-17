@@ -1,4 +1,4 @@
-package com.quicktext.keyboard
+package com.quicktext.accessibility
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
@@ -42,10 +42,6 @@ class PhrasesDatabase(private val context: Context) {
         }
     }
 
-    /**
-     * Returns phrases whose shortcut starts with the query (prefix match), or whose
-     * text/category contains the query. Ordered so that shortcut-prefix matches come first.
-     */
     fun searchPhrases(query: String, limit: Int = 10): List<Phrase> {
         if (query.isBlank()) return emptyList()
         val db = openDatabase() ?: return emptyList()
